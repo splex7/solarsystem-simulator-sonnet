@@ -15,6 +15,7 @@ export class PlanetManager {
         this.infoCard = document.getElementById('info-card');
         this.planetName = document.getElementById('planet-name');
         this.planetDescription = document.getElementById('planet-description');
+        this.planetFunFact = document.getElementById('planet-fun-fact');
     }
 
     setupRaycaster() {
@@ -23,7 +24,9 @@ export class PlanetManager {
     }
 
     async loadPlanets(planetLoader) {
-        this.planetsData = await planetLoader.loadPlanets();
+        const data = await planetLoader.loadPlanets();
+        this.planetsData = data.planets;
+        this.starData = data.star;
         this.createOrbits();
         this.createPlanets();
         this.createSun();
@@ -81,6 +84,11 @@ export class PlanetManager {
 
         this.sun = new THREE.Mesh(sunGeometry, sunMaterial);
         this.sun.position.set(0, 0, 0);
+        this.sun.userData = {
+            name: this.starData.name,
+            description: this.starData.description,
+            funFact: this.starData.funFact
+        };
         this.scene.add(this.sun);
 
         // Add sun light
@@ -99,26 +107,23 @@ export class PlanetManager {
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
         this.raycaster.setFromCamera(this.mouse, camera);
-        const intersects = this.raycaster.intersectObjects(this.planets);
+        const intersects = this.raycaster.intersectObjects([this.sun, ...this.planets]);
 
         if (intersects.length > 0) {
-            this.selectedPlanet = intersects[0].object;
-            this.showInfoCard(event);
-            return this.selectedPlanet;
+            const selectedObject = intersects[0].object;
+            this.showInfoCard(selectedObject);
         } else {
             this.hideInfoCard();
-            this.selectedPlanet = null;
-            return null;
         }
     }
 
-    showInfoCard(event) {
+    showInfoCard(object) {
+        if (!object.userData) return;
+        
+        this.planetName.textContent = object.userData.name;
+        this.planetDescription.textContent = object.userData.description;
+        this.planetFunFact.textContent = object.userData.funFact;
         this.infoCard.style.display = 'block';
-        this.infoCard.style.top = '50%';
-        const planetData = this.planetsData.find(data => data.name === this.selectedPlanet.userData.name);
-        this.planetName.textContent = planetData.name;
-        this.planetDescription.textContent = planetData.description;
-        document.getElementById('planet-fun-fact').textContent = planetData.funFact;
     }
 
     hideInfoCard() {

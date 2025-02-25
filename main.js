@@ -21,16 +21,107 @@ document.body.appendChild(renderer.domElement);
 camera.position.set(20, 10, 20);
 camera.lookAt(0, 0, 0);
 
-// Planets data
-const planetsData = [
-    { name: 'Mercury', description: 'The smallest and innermost planet in the Solar System.', color: 0xE5E5E5, size: 1*0.5, orbit: 6 },
-    { name: 'Venus', description: 'Often called Earth\'s sister planet due to similar size.', color: 0xFFA500, size: 1.2*0.5, orbit: 8 },
-    { name: 'Earth', description: 'Our home planet, the only known planet to harbor life.', color: 0x4169E1, size: 1.3*0.5, orbit: 10 },
-    { name: 'Mars', description: 'The Red Planet, named after the Roman god of war.', color: 0xFF4500, size: 1.1*0.5, orbit: 12 }
-];
+// Load planets data from JSON
+let planetsData = [];
 
 // Create texture loader before using it
 const textureLoader = new THREE.TextureLoader();
+
+// Function to initialize planets
+function initializePlanets(data) {
+    planetsData = data;
+
+    // Create orbital paths
+    planetsData.forEach(data => {
+        const orbitGeometry = new THREE.RingGeometry(data.orbit, data.orbit + 0.05, 128);
+        const orbitMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.5,
+            side: THREE.DoubleSide
+        });
+        const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
+        orbit.rotation.x = Math.PI / 2;
+        scene.add(orbit);
+        orbits.push(orbit);
+    });
+
+    // Create planets
+    const planetGeometry = new THREE.SphereGeometry(1, 32, 32);
+
+    planetsData.forEach((data, index) => {
+        const material = new THREE.MeshPhongMaterial({
+            map: textureLoader.load(`${data.name.toLowerCase()}.jpg`),
+            shininess: 100,
+            emissiveMap: textureLoader.load(`${data.name.toLowerCase()}.jpg`),
+            emissiveIntensity: 0.5
+        });
+
+        const planet = new THREE.Mesh(planetGeometry, material);
+        planet.castShadow = true;
+        planet.receiveShadow = true;
+        planet.scale.setScalar(data.size);
+        planet.userData = { 
+            name: data.name, 
+            description: data.description,
+            orbit: data.orbit,
+            angle: (Math.PI * 2 / planetsData.length) * index,
+            funFact: data.funFact
+        };
+
+        // Load texture with proper error handling
+        textureLoader.load(
+            `${data.name.toLowerCase()}.jpg`,
+            (texture) => {
+                material.map = texture;
+                material.emissiveMap = texture;
+                material.emissiveIntensity = 0.5;
+                material.needsUpdate = true;
+            },
+            undefined,
+            (error) => {
+                console.error(`Error loading texture for ${data.name}:`, error);
+            }
+        );
+
+        // Add cloud layer for Earth
+        if (data.name === 'Earth') {
+            const cloudGeometry = new THREE.SphereGeometry(1.05, 32, 32);
+            const cloudMaterial = new THREE.MeshStandardMaterial({
+                transparent: true,
+                opacity: 0.6,
+            });
+            
+            // Load cloud texture with error handling
+            textureLoader.load(
+                'cloud.jpg',
+                (texture) => {
+                    cloudMaterial.map = texture;
+                    cloudMaterial.needsUpdate = true;
+                },
+                undefined,
+                (error) => {
+                    console.error('Error loading cloud texture:', error);
+                }
+            );
+
+            const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            clouds.raycast = () => {};
+            planet.add(clouds);
+            planet.userData.clouds = clouds;
+        }
+        scene.add(planet);
+        planets.push(planet);
+    });
+}
+
+// Load planet data
+fetch('planets.json')
+    .then(response => response.json())
+    .then(data => {
+        initializePlanets(data.planets);
+    })
+    .catch(error => console.error('Error loading planets data:', error));
 
 // Create Sun
 const sunGeometry = new THREE.SphereGeometry(1.5, 32, 32);
@@ -61,91 +152,9 @@ sunLight.shadow.camera.near = 0.5;
 sunLight.shadow.camera.far = 50;
 scene.add(sunLight);
 
-// Create orbital paths
-const orbits = [];
-planetsData.forEach(data => {
-    const orbitGeometry = new THREE.RingGeometry(data.orbit, data.orbit + 0.05, 128);
-    const orbitMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.5,
-        side: THREE.DoubleSide
-        
-    });
-    const orbit = new THREE.Mesh(orbitGeometry, orbitMaterial);
-    orbit.rotation.x = Math.PI / 2;
-    scene.add(orbit);
-    orbits.push(orbit);
-});
-
-// Create planets
+// Initialize arrays for planets and orbits
 const planets = [];
-const planetGeometry = new THREE.SphereGeometry(1, 32, 32);
-// Remove duplicate textureLoader declaration
-
-planetsData.forEach((data, index) => {
-    const material = new THREE.MeshPhongMaterial({
-        map: textureLoader.load(`${data.name.toLowerCase()}.jpg`),
-        shininess: 100,
-        emissiveMap: textureLoader.load(`${data.name.toLowerCase()}.jpg`),
-        emissiveIntensity: 0.5
-    });
-
-    const planet = new THREE.Mesh(planetGeometry, material);
-    planet.castShadow = true;
-    planet.receiveShadow = true;
-    planet.scale.setScalar(data.size);
-    planet.userData = { 
-        name: data.name, 
-        description: data.description,
-        orbit: data.orbit,
-        angle: (Math.PI * 2 / planetsData.length) * index
-    };
-
-    // Load texture with proper error handling
-    textureLoader.load(
-        `${data.name.toLowerCase()}.jpg`,
-        (texture) => {
-            material.map = texture;
-            material.emissiveMap = texture;
-            material.emissiveIntensity = 0.5;
-            material.needsUpdate = true;
-        },
-        undefined,
-        (error) => {
-            console.error(`Error loading texture for ${data.name}:`, error);
-        }
-    );
-
-    // Add cloud layer for Earth
-    if (data.name === 'Earth') {
-        const cloudGeometry = new THREE.SphereGeometry(1.05, 32, 32);
-        const cloudMaterial = new THREE.MeshStandardMaterial({
-            transparent: true,
-            opacity: 0.6,
-        });
-        
-        // Load cloud texture with error handling
-        textureLoader.load(
-            'cloud.jpg',
-            (texture) => {
-                cloudMaterial.map = texture;
-                cloudMaterial.needsUpdate = true;
-            },
-            undefined,
-            (error) => {
-                console.error('Error loading cloud texture:', error);
-            }
-        );
-
-        const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
-        clouds.raycast = () => {};
-        planet.add(clouds);
-        planet.userData.clouds = clouds;
-    }
-    scene.add(planet);
-    planets.push(planet);
-});
+const orbits = [];
 
 // Add stars
 const starsGeometry = new THREE.BufferGeometry();
@@ -197,6 +206,19 @@ const mouse = new THREE.Vector2();
 const infoCard = document.getElementById('info-card');
 const planetName = document.getElementById('planet-name');
 const planetDescription = document.getElementById('planet-description');
+const planetFunFact = document.getElementById('planet-fun-fact');
+
+// Set info card styles
+infoCard.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+infoCard.style.position = 'fixed';
+infoCard.style.bottom = '20px';
+infoCard.style.left = '50%';
+infoCard.style.transform = 'translateX(-50%)';
+infoCard.style.width = '400px';
+infoCard.style.maxHeight = '70vh';
+infoCard.style.overflowY = 'auto';
+infoCard.style.transition = 'all 0.3s ease';
+infoCard.style.zIndex = '1000';
 
 // Camera animation
 let targetPosition = null;
@@ -210,7 +232,7 @@ function onMouseClick(event) {
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
     raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(planets);
+    const intersects = raycaster.intersectObjects([...planets, sun]);
 
     if (intersects.length > 0) {
         selectedPlanet = intersects[0].object;
@@ -218,10 +240,16 @@ function onMouseClick(event) {
 
         // Show info card
         infoCard.style.display = 'block';
-        infoCard.style.left = event.clientX + 'px';
-        infoCard.style.top = event.clientY + 'px';
-        planetName.textContent = selectedPlanet.userData.name;
-        planetDescription.textContent = selectedPlanet.userData.description;
+        
+        if (selectedPlanet === sun) {
+            planetName.textContent = "Sun";
+            planetDescription.textContent = "태양계의 중심에 있는 항성으로, 모든 행성에 빛과 열을 제공합니다.";
+            planetFunFact.textContent = "태양은 지구로부터 약 1억 5천만 킬로미터 떨어져 있으며, 표면 온도는 약 5,500°C입니다. 태양의 질량은 지구의 약 33만 배이며, 태양계 전체 질량의 99.86%를 차지합니다. 태양의 중심부 온도는 약 1,500만°C에 달하며, 매초 수소를 헬륨으로 융합하는 핵융합 반응이 일어나고 있습니다.";
+        } else {
+            planetName.textContent = selectedPlanet.userData.name;
+            planetDescription.textContent = selectedPlanet.userData.description;
+            planetFunFact.textContent = selectedPlanet.userData.funFact;
+        }
     } else {
         // Reset camera position
         selectedPlanet = null;
