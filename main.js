@@ -395,6 +395,9 @@ function animate() {
     requestAnimationFrame(animate);
 
     // Update planet positions
+    // Add sun rotation
+    sun.rotation.y += 0.001; // Sun's self-rotation speed
+
     planets.forEach((planet, index) => {
         const data = planetsData[index];
         planet.userData.angle += 0.005 / Math.sqrt(data.orbit); // Adjust speed based on orbit radius
