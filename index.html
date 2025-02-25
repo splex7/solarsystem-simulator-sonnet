@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Explorer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+        .info-card {
+            position: fixed;
+            background: linear-gradient(135deg, rgba(13, 17, 23, 0.95) 0%, rgba(23, 32, 42, 0.95) 100%);
+            color: #e1e8ed;
+            padding: 20px;
+            border-radius: 15px;
+            display: none;
+            pointer-events: none;
+            transform: translate(20px, -50%);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 400px;
+            width: 90vw;
+            box-sizing: border-box;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            right: 0;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .info-card h2 {
+            margin: 0 0 15px 0;
+            font-size: 28px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            letter-spacing: 1px;
+        }
+        .info-card p {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #ccd6f6;
+        }
+        .info-card .fun-fact {
+            font-size: 14px;
+            color: #8892b0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(40px, -50%); }
+            to { opacity: 1; transform: translate(20px, -50%); }
+        }
+        @media (max-width: 768px) {
+            .info-card {
+                width: 85vw;
+                padding: 15px;
+                transform: translate(10px, -50%);
+            }
+            .info-card h2 {
+                font-size: 24px;
+            }
+            .info-card p {
+                font-size: 14px;
+            }
+            .info-card .fun-fact {
+                font-size: 12px;
+            }
+        }
+        @media (max-width: 768px) {
+            .info-card {
+                padding: 12px;
+                max-width: 90vw;
+                width: auto;
+                min-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="info-card" class="info-card">
+        <h2 id="planet-name">Planet Name</h2>
+        <p id="planet-description">Planet description goes here.</p>
+        <p id="planet-fun-fact" class="fun-fact"></p>
+    </div>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.157.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
