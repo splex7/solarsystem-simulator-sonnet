@@ -140,6 +140,33 @@ const sunMaterial = new THREE.MeshPhongMaterial({
 
 const sun = new THREE.Mesh(sunGeometry, sunMaterial);
 sun.position.set(0, 0, 0);
+sun.userData.maxHp = 32;
+sun.userData.currentHp = 32;
+
+// Create 32 HP ring segments
+sun.userData.hpRings = [];
+const segmentCount = 32;
+const angleStep = (Math.PI * 2) / segmentCount;
+
+for (let i = 0; i < segmentCount; i++) {
+    const startAngle = i * angleStep;
+    const endAngle = (i + 0.9) * angleStep; // Leave small gap between segments
+    
+    const hpRingGeometry = new THREE.RingGeometry(2, 2.2, 1, 1, startAngle, angleStep * 0.9);
+    const hpRingMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide
+    });
+    
+    const ringSegment = new THREE.Mesh(hpRingGeometry, hpRingMaterial);
+    ringSegment.rotation.x = Math.PI / 2;
+    ringSegment.position.y = -1;
+    
+    sun.userData.hpRings.push(ringSegment);
+    scene.add(ringSegment);
+}
 scene.add(sun);
 
 // Add a point light at the sun's position for better illumination
@@ -152,6 +179,15 @@ sunLight.shadow.camera.near = 0.5;
 sunLight.shadow.camera.far = 50;
 scene.add(sunLight);
 
+
+
+// Load sun data
+fetch('planets.json')
+   .then(response => response.json())
+   .then(data => {
+        sun.data = data.star;
+    })
+   .catch(error => console.error('Error loading sun data:', error));
 // Initialize arrays for planets and orbits
 const planets = [];
 const orbits = [];
@@ -513,7 +549,7 @@ function generateAsteroid(event) {
 
     // Get the direction vector
     const direction = raycaster.ray.direction;
-
+selectedPlanet
     // Create particle with random size variation
     const particle = new THREE.Mesh(particleGeometry, particleMaterial);
     const randomScale = 0.8 + Math.random() * 0.4; // Random scale between 0.8 and 1.2
@@ -587,14 +623,47 @@ renderer.domElement.addEventListener('click', (event) => {
     }
 });
 
+//'retry-button' make refresh page
+document.getElementById('retry-button').addEventListener('click', () => {
+    location.reload();
+});
+
+
 // Animation function
 // Update animation loop to include cloud rotation and particle movement
 function animate() {
     requestAnimationFrame(animate);
 
-    // Update planet positions and rotations
+    // Update Sun rotation and HP bar
     sun.rotation.y += 0.001;
+    
+    // Update HP ring segments based on current HP
+    if (sun.userData.hpRings) {
+        const hpPercentage = sun.userData.currentHp / sun.userData.maxHp;
+        const totalSegments = sun.userData.hpRings.length;
+        const activeSegments = Math.ceil(hpPercentage * totalSegments);
+        
+        // Check if Sun's HP is zero and show retry button
+        if (sun.userData.currentHp <= 0) {
+            document.getElementById('retry-button').style.display = 'block';
+        }
+        
+        sun.userData.hpRings.forEach((ring, index) => {
+            const color = new THREE.Color();
+            color.setHSL(hpPercentage * 0.3, 1, 0.5); // Green to red transition
+            ring.material.color = color;
+            
+            // Show/hide segments based on current HP
+            if (index < activeSegments) {
+                ring.visible = true;
+                ring.material.opacity = 0.8;
+            } else {
+                ring.visible = false;
+            }
+        });
+    }
 
+    // Update Planet positions
     planets.forEach((planet, index) => {
         const data = planetsData[index];
         planet.userData.angle += 0.005 / Math.sqrt(data.orbit);
@@ -640,7 +709,9 @@ function animate() {
         if (distanceToSun < 2) {
             createImpactEffect(particle.position, 0xffff00, 0.5, scene);
             playCollisionSound();
-            logCollision(particle.userData.name, 'Sun');
+            // Reduce sun's HP
+            sun.userData.currentHp = Math.max(0, sun.userData.currentHp - 1);
+            logCollision(particle.userData.name, "Sun");
             if (particle.userData.guideLine) {
                 scene.remove(particle.userData.guideLine);
             }
@@ -668,7 +739,9 @@ function animate() {
                                   planet.userData.name === 'Venus' ? 0xFFA500 : 0xE5E5E5;
                 createImpactEffect(particle.position, impactColor, 0.3, scene);
                 playCollisionSound();
-                logCollision(particle.userData.name, planet.userData.name);
+                // Reduce planet's HP
+                planet.userData.currentHp = Math.max(0, planet.userData.currentHp - 1);
+                logCollision(particle.userData.name, `${planet.userData.name}`);
                 if (particle.userData.guideLine) {
                     scene.remove(particle.userData.guideLine);
                 }
