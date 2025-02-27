@@ -188,7 +188,7 @@ scene.add(stars);
 // Remove old lighting setup
 // Lighting
 // Enhanced lighting setup
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.05); // Increased intensity
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Increased intensity
 scene.add(ambientLight);
 
 // Main point light (sun-like)
@@ -458,9 +458,11 @@ window.addEventListener('resize', onWindowResize);
 const particles = [];
 const particleGeometry = new THREE.SphereGeometry(0.1, 8, 8);
 const particleMaterial = new THREE.MeshPhongMaterial({
+    
     color: 0xffffff,
-    emissive: 0xffffff,
-    emissiveIntensity: 0.5
+    shininess: 80,
+    emissiveMap: textureLoader.load('asteroid.jpg'),
+    emissiveIntensity: 0.8
 });
 
 // Create Audio context and load sound effect
@@ -504,6 +506,15 @@ function playCollisionSound() {
     }
 }
 
+function generateAsteroidName() {
+    const prefixes = ["Ceres", "Vesta", "Pallas", "Juno", "Psyche", "Hygiea",
+  "Eunomia", "Euphrosyne", "Interamnia", "Davida",
+  "Sylvia", "Cybele", "Thisbe", "Europa", "Amphitrite", "Hebe"];
+    const suffixes = ['X', 'Y', 'Z', 'A', 'B', 'C'];
+    const numbers = Math.floor(Math.random() * 9999);
+    return `${prefixes[Math.floor(Math.random() * prefixes.length)]}-${numbers}-${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
+}
+
 function createParticle(event) {
     // Convert 2D click coordinates to 3D world coordinates
     const mouse = new THREE.Vector2();
@@ -520,6 +531,36 @@ function createParticle(event) {
     // Create particle at a distance from the camera
     const particle = new THREE.Mesh(particleGeometry, particleMaterial);
     particle.position.copy(camera.position).add(direction.multiplyScalar(10));
+
+    // Add wireframe outline
+    const wireframeGeometry = new THREE.WireframeGeometry(particleGeometry);
+    const wireframeMaterial = new THREE.LineBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.5
+    });
+    const wireframe = new THREE.LineSegments(wireframeGeometry, wireframeMaterial);
+    particle.add(wireframe);
+
+    // Create and add asteroid name label
+    const asteroidName = generateAsteroidName();
+    const textSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: new THREE.CanvasTexture((() => {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 64;
+            context.font = '24px Arial';
+            context.fillStyle = '#00FF00';
+            context.textAlign = 'center';
+            context.fillText(asteroidName, 128, 32);
+            return canvas;
+        })())
+    }));
+    textSprite.scale.set(2, 0.5, 1);
+    textSprite.position.y = 0.5;
+    particle.add(textSprite);
+    particle.userData.name = asteroidName;
 
     // Initialize velocity (perpendicular to the direction to create orbital motion)
     const perpendicular = new THREE.Vector3(1, 0, 0);
@@ -580,6 +621,7 @@ function animate() {
         if (distanceToSun < 2) {
             createImpactEffect(particle.position, 0xffff00, 0.5, scene);
             playCollisionSound();
+            logCollision( particle.userData.name , 'Sun');
             scene.remove(particle);
             particles.splice(i, 1);
             continue;
@@ -604,6 +646,7 @@ function animate() {
                                   planet.userData.name === 'Venus' ? 0xFFA500 : 0xE5E5E5;
                 createImpactEffect(particle.position, impactColor, 0.3, scene);
                 playCollisionSound();
+                logCollision(particle.userData.name, planet.userData.name);
                 scene.remove(particle);
                 particles.splice(i, 1);
             }
@@ -616,7 +659,21 @@ function animate() {
         particle.position.add(particle.velocity.multiplyScalar(0.3));
     }
 
-    function createImpactEffect(position, color, size, scene) {
+    function logCollision(object1, object2) {
+    const logEntry = document.createElement('li');
+    logEntry.className = 'collision-log-entry';
+    logEntry.textContent = `${object1} collided with ${object2}`;
+    const logEntries = document.querySelector('.collision-log-entries');
+    
+    logEntries.appendChild(logEntry);
+    
+    // Keep only the last 5 entries
+    while (logEntries.children.length > 5) {
+        logEntries.removeChild(logEntries.firstChild);
+    }
+}
+
+function createImpactEffect(position, color, size, scene) {
         const impactGeometry = new THREE.SphereGeometry(size, 16, 16);
         const impactMaterial = new THREE.MeshPhongMaterial({
             color: color,

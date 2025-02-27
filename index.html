@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,9 +10,95 @@
             margin: 0;
             overflow: hidden;
         }
+
+        .collision-log {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: linear-gradient(135deg, rgba(13, 17, 23, 0.25) 0%, rgba(23, 32, 42, 0.25) 100%);
+            color: #e1e8ed;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 300px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 1000;
+        }
+
+        .collision-log h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .collision-log-entries {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            max-height: 20vh;
+            /* overflow-y: auto; */
+            overflow: visible;
+        }
+
+        .collision-log-entries::-webkit-scrollbar {
+            display: none;
+        }
+
+        .collision-log-entries::-webkit-scrollbar-track {
+            display: none;
+        }
+
+        .collision-log-entries::-webkit-scrollbar-thumb {
+            display: none;
+        }
+
+        .collision-log-entry {
+            margin-bottom: 5px;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #ccd6f6;
+            opacity: 0;
+            animation: fadeInEntry 1s ease 0.2s forwards;
+          
+        }
+
+        .collision-log-entry::before {
+            content: "[Warning] ";
+            font-weight: bold;
+            color: red;
+        }
+
+        @media (max-width: 768px) {
+            .collision-log {
+                position: fixed;
+                top: 10px;
+                left: 10px;
+                padding: 10px;
+                border-radius: 8px;
+                max-width: 250px;
+            }
+
+
+        @keyframes fadeInEntry {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+        }
+
+       
         canvas {
             display: block;
         }
+
         .info-card {
             position: fixed;
             background: linear-gradient(135deg, rgba(13, 17, 23, 0.25) 0%, rgba(23, 32, 42, 0.25) 100%);
@@ -33,6 +120,7 @@
             transform: translateX(-50%);
             animation: fadeIn 0.3s ease-out;
         }
+
         .info-card h2 {
             margin: 0 0 15px 0;
             font-size: 28px;
@@ -40,12 +128,14 @@
             text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
             letter-spacing: 1px;
         }
+
         .info-card p {
             margin: 0 0 15px 0;
             font-size: 16px;
             line-height: 1.6;
             color: #ccd6f6;
         }
+
         .info-card .fun-fact {
             font-size: 14px;
             color: #8892b0;
@@ -53,10 +143,19 @@
             padding-top: 15px;
             margin-top: 15px;
         }
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
         }
+
         @media (max-width: 768px) {
             .info-card {
                 width: 85vw;
@@ -64,20 +163,24 @@
                 bottom: 15px;
                 max-width: none;
             }
+
             .info-card h2 {
                 font-size: 20px;
                 margin-bottom: 10px;
             }
+
             .info-card p {
                 font-size: 14px;
                 margin-bottom: 10px;
             }
+
             .info-card .fun-fact {
                 font-size: 12px;
                 padding-top: 10px;
                 margin-top: 10px;
             }
         }
+
         .toggle-switch.active::before {
             transform: translateX(30px);
         }
@@ -115,7 +218,12 @@
         }
     </style>
 </head>
+
 <body>
+    <div class="collision-log">
+        <h3>Collision Log</h3>
+        <ul class="collision-log-entries"></ul>
+    </div>
     <div id="audio-permission">
         <h2>Sound Effects Permission</h2>
         <p>This experience includes sound effects. Click below to enable audio.</p>
@@ -136,4 +244,5 @@
     </script>
     <script type="module" src="main.js"></script>
 </body>
+
 </html>
