@@ -249,8 +249,6 @@ function onMouseClick(event) {
 
         // Show info card
         infoCard.style.display = 'block';
-        infoCard.style.left = event.clientX + 'px';
-        infoCard.style.top = event.clientY + 'px';
         
         if (selectedPlanet === sun) {
             planetName.textContent = "Sun";
