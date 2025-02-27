@@ -18,7 +18,7 @@ renderer.setClearColor(0x000814, 1);
 document.body.appendChild(renderer.domElement);
 
 // Camera initial position
-camera.position.set(20, 10, 20);
+camera.position.set(16, 10, 16);
 camera.lookAt(0, 0, 0);
 
 // Load planets data from JSON
@@ -160,7 +160,7 @@ const orbits = [];
 const gridHelper = new THREE.GridHelper(1000, 200, 0x00ff00, 0x00ff00);
 gridHelper.material.opacity = 0.2;
 gridHelper.material.transparent = true;
-gridHelper.position.y = -2;
+gridHelper.position.y = -2; // GRID Y LEVEL
 scene.add(gridHelper);
 
 // Add stars
@@ -185,25 +185,10 @@ starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVer
 const stars = new THREE.Points(starsGeometry, starsMaterial);
 scene.add(stars);
 
-// Remove old lighting setup
-// Lighting
-// Enhanced lighting setup
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Increased intensity
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.15); // Increased intensity
 scene.add(ambientLight);
 
-// Main point light (sun-like)
-// const mainLight = new THREE.PointLight(0xFFFFFF, 3); // Increased intensity
-// mainLight.position.set(20, 10, 20);
-// scene.add(mainLight);
-
-// Secondary lights for better coverage
-// const secondaryLight = new THREE.PointLight(0xFFFFFF, 1.5); // Increased intensity
-// secondaryLight.position.set(-15, -10, -15);
-// scene.add(secondaryLight);
-
-// const fillLight = new THREE.PointLight(0xFFFAF0, 1); // Increased intensity
-// fillLight.position.set(0, 15, 0);
-// scene.add(fillLight);
 
 // Raycaster for planet selection
 const raycaster = new THREE.Raycaster();
@@ -364,7 +349,7 @@ class CameraController {
             const intersects = raycaster.intersectObjects([...planets, sun]);
             
             if (intersects.length === 0) {
-                createParticle(touch); // Only create particle if no planet was touched
+                generateAsteroid(touch); // Only create particle if no planet was touched
             } else {
                 onMouseClick(touch); // Handle planet selection if a planet was touched
             }
@@ -458,7 +443,6 @@ window.addEventListener('resize', onWindowResize);
 const particles = [];
 const particleGeometry = new THREE.SphereGeometry(0.1, 8, 8);
 const particleMaterial = new THREE.MeshPhongMaterial({
-    
     color: 0xffffff,
     shininess: 80,
     emissiveMap: textureLoader.load('asteroid.jpg'),
@@ -507,15 +491,17 @@ function playCollisionSound() {
 }
 
 function generateAsteroidName() {
-    const prefixes = ["Ceres", "Vesta", "Pallas", "Juno", "Psyche", "Hygiea",
-  "Eunomia", "Euphrosyne", "Interamnia", "Davida",
-  "Sylvia", "Cybele", "Thisbe", "Europa", "Amphitrite", "Hebe"];
+    const prefixes =  [
+        "케레스", "베스타", "팔라스", "유노", "프시케", "히기에아",
+        "유노미아", "유프로시네", "인터람니아", "다비다",
+        "실비아", "키벨레", "디스베", "유로파", "암피트리테", "헤베"
+      ];
     const suffixes = ['X', 'Y', 'Z', 'A', 'B', 'C'];
-    const numbers = Math.floor(Math.random() * 9999);
+    const numbers = Math.floor(Math.random() * 999);
     return `${prefixes[Math.floor(Math.random() * prefixes.length)]}-${numbers}-${suffixes[Math.floor(Math.random() * suffixes.length)]}`;
 }
 
-function createParticle(event) {
+function generateAsteroid(event) {
     // Convert 2D click coordinates to 3D world coordinates
     const mouse = new THREE.Vector2();
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -528,8 +514,10 @@ function createParticle(event) {
     // Get the direction vector
     const direction = raycaster.ray.direction;
 
-    // Create particle at a distance from the camera
+    // Create particle with random size variation
     const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+    const randomScale = 0.8 + Math.random() * 0.4; // Random scale between 0.8 and 1.2
+    particle.scale.setScalar(randomScale);
     particle.position.copy(camera.position).add(direction.multiplyScalar(10));
 
     // Add wireframe outline
@@ -561,6 +549,7 @@ function createParticle(event) {
     textSprite.position.y = 0.5;
     particle.add(textSprite);
     particle.userData.name = asteroidName;
+    particle.userData.scale = randomScale; // Store the random scale for future reference
 
     // Initialize velocity (perpendicular to the direction to create orbital motion)
     const perpendicular = new THREE.Vector3(1, 0, 0);
@@ -570,6 +559,22 @@ function createParticle(event) {
     const velocity = new THREE.Vector3().crossVectors(direction, perpendicular).normalize();
     particle.velocity = velocity.multiplyScalar(0.3);
 
+    // Create vertical guide line
+    const lineGeometry = new THREE.BufferGeometry();
+    const lineMaterial = new THREE.LineBasicMaterial({
+        color: 0x00ff00,
+        transparent: true,
+        opacity: 0.5
+    });
+    
+    // Create line vertices (will be updated in animation)
+    const lineVertices = new Float32Array(6); // 2 points * 3 coordinates
+    lineGeometry.setAttribute('position', new THREE.BufferAttribute(lineVertices, 3));
+    
+    const guideLine = new THREE.Line(lineGeometry, lineMaterial);
+    scene.add(guideLine);
+    particle.userData.guideLine = guideLine;
+
     // Add particle to the scene and particles array
     scene.add(particle);
     particles.push(particle);
@@ -578,7 +583,7 @@ function createParticle(event) {
 // Add particle creation event listener
 renderer.domElement.addEventListener('click', (event) => {
     if (!isFollowingPlanet) {
-        createParticle(event);
+        generateAsteroid(event);
     }
 });
 
@@ -617,11 +622,28 @@ function animate() {
         const sunForceMagnitude = G * sunMass / (distanceToSun * distanceToSun);
         totalForce.add(toSun.normalize().multiplyScalar(sunForceMagnitude));
         
+        // Update guide line vertices
+        if (particle.userData.guideLine) {
+            const positions = particle.userData.guideLine.geometry.attributes.position.array;
+            // Set top point (asteroid position)
+            positions[0] = particle.position.x;
+            positions[1] = particle.position.y;
+            positions[2] = particle.position.z;
+            // Set bottom point at grid level (directly below asteroid)
+            positions[3] = particle.position.x;
+            positions[4] = -2; // Grid level at Y=-10
+            positions[5] = particle.position.z;
+            particle.userData.guideLine.geometry.attributes.position.needsUpdate = true;
+        }
+
         // Check for collision with sun
         if (distanceToSun < 2) {
             createImpactEffect(particle.position, 0xffff00, 0.5, scene);
             playCollisionSound();
-            logCollision( particle.userData.name , 'Sun');
+            logCollision(particle.userData.name, 'Sun');
+            if (particle.userData.guideLine) {
+                scene.remove(particle.userData.guideLine);
+            }
             scene.remove(particle);
             particles.splice(i, 1);
             continue;
@@ -647,6 +669,9 @@ function animate() {
                 createImpactEffect(particle.position, impactColor, 0.3, scene);
                 playCollisionSound();
                 logCollision(particle.userData.name, planet.userData.name);
+                if (particle.userData.guideLine) {
+                    scene.remove(particle.userData.guideLine);
+                }
                 scene.remove(particle);
                 particles.splice(i, 1);
             }
@@ -662,7 +687,7 @@ function animate() {
     function logCollision(object1, object2) {
     const logEntry = document.createElement('li');
     logEntry.className = 'collision-log-entry';
-    logEntry.textContent = `${object1} collided with ${object2}`;
+    logEntry.textContent = `${object1} 💥 ${object2}`;
     const logEntries = document.querySelector('.collision-log-entries');
     
     logEntries.appendChild(logEntry);
@@ -714,7 +739,7 @@ function createImpactEffect(position, color, size, scene) {
             isAnimating = true; // Keep animating to follow the planet
         } else {
             // Return to initial position
-            const initialPosition = new THREE.Vector3(20, 10, 20);
+            const initialPosition = new THREE.Vector3(16, 10, 16);
             camera.position.lerp(initialPosition, 0.05);
             camera.lookAt(new THREE.Vector3(0, 0, 0));
             
