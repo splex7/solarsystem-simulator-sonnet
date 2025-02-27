@@ -344,7 +344,21 @@ class CameraController {
             this.pointerDown = true;
             this.pointerPosition.set(event.touches[0].clientX, event.touches[0].clientY);
             this.previousPointerPosition.copy(this.pointerPosition);
-            onMouseClick(event.touches[0]);
+            
+            // Check for planet intersection first
+            const touch = event.touches[0];
+            const touchMouse = new THREE.Vector2();
+            touchMouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+            touchMouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(touchMouse, camera);
+            const intersects = raycaster.intersectObjects([...planets, sun]);
+            
+            if (intersects.length === 0) {
+                createParticle(touch); // Only create particle if no planet was touched
+            } else {
+                onMouseClick(touch); // Handle planet selection if a planet was touched
+            }
         } else if (event.touches.length === 2) {
             const touch1 = event.touches[0];
             const touch2 = event.touches[1];
@@ -431,8 +445,80 @@ const cameraController = new CameraController(camera, renderer.domElement);
 // Event listener for window resize
 window.addEventListener('resize', onWindowResize);
 
+// Particle system setup
+const particles = [];
+const particleGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+const particleMaterial = new THREE.MeshPhongMaterial({
+    color: 0xffffff,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.5
+});
+
+// Create Audio context and load sound effect
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+let collisionSound;
+
+fetch('boom.mp3')
+    .then(response => response.arrayBuffer())
+    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+    .then(audioBuffer => {
+        collisionSound = audioBuffer;
+    })
+    .catch(error => console.error('Error loading sound:', error));
+
+function playCollisionSound() {
+    if (collisionSound && audioContext.state === 'running') {
+        const source = audioContext.createBufferSource();
+        source.buffer = collisionSound;
+         // Create a GainNode to control the volume
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.2; // S
+        source.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+      
+        source.start(0);
+    }
+}
+
+function createParticle(event) {
+    // Convert 2D click coordinates to 3D world coordinates
+    const mouse = new THREE.Vector2();
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Create a raycaster
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+
+    // Get the direction vector
+    const direction = raycaster.ray.direction;
+
+    // Create particle at a distance from the camera
+    const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+    particle.position.copy(camera.position).add(direction.multiplyScalar(10));
+
+    // Initialize velocity (perpendicular to the direction to create orbital motion)
+    const perpendicular = new THREE.Vector3(1, 0, 0);
+    if (Math.abs(direction.dot(perpendicular)) > 0.9) {
+        perpendicular.set(0, 1, 0);
+    }
+    const velocity = new THREE.Vector3().crossVectors(direction, perpendicular).normalize();
+    particle.velocity = velocity.multiplyScalar(0.3);
+
+    // Add particle to the scene and particles array
+    scene.add(particle);
+    particles.push(particle);
+}
+
+// Add particle creation event listener
+renderer.domElement.addEventListener('click', (event) => {
+    if (!isFollowingPlanet) {
+        createParticle(event);
+    }
+});
+
 // Animation function
-// Update animation loop to include cloud rotation
+// Update animation loop to include cloud rotation and particle movement
 function animate() {
     requestAnimationFrame(animate);
 
@@ -450,6 +536,92 @@ function animate() {
             planet.userData.clouds.rotation.y += 0.0022;
         }
     });
+
+    // Update particle positions based on gravity
+    const G = 0.1; // Further reduced gravitational constant for slower movement
+    const sunMass = 100; // Sun's mass
+    const planetMass = 10; // Planet mass for gravity calculations
+    
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const particle = particles[i];
+        let totalForce = new THREE.Vector3(0, 0, 0);
+        
+        // Calculate sun's gravitational force
+        const toSun = new THREE.Vector3().subVectors(sun.position, particle.position);
+        const distanceToSun = toSun.length();
+        const sunForceMagnitude = G * sunMass / (distanceToSun * distanceToSun);
+        totalForce.add(toSun.normalize().multiplyScalar(sunForceMagnitude));
+        
+        // Check for collision with sun
+        if (distanceToSun < 2) {
+            createImpactEffect(particle.position, 0xffff00, 0.5, scene);
+            playCollisionSound();
+            scene.remove(particle);
+            particles.splice(i, 1);
+            continue;
+        }
+        
+        // Calculate planets' gravitational forces and check collisions
+        let hasCollided = false;
+        planets.forEach(planet => {
+            const toPlanet = new THREE.Vector3().subVectors(planet.position, particle.position);
+            const distanceToPlanet = toPlanet.length();
+            
+            // Calculate planet's gravitational force
+            const planetForceMagnitude = G * planetMass / (distanceToPlanet * distanceToPlanet);
+            totalForce.add(toPlanet.normalize().multiplyScalar(planetForceMagnitude));
+            
+            // Check for collision with planet (using planet's size for collision detection)
+            if (distanceToPlanet < planet.scale.x) {
+                hasCollided = true;
+                // Create impact effect with planet-specific color
+                const impactColor = planet.userData.name === 'Earth' ? 0x4169E1 :
+                                  planet.userData.name === 'Mars' ? 0xFF4500 :
+                                  planet.userData.name === 'Venus' ? 0xFFA500 : 0xE5E5E5;
+                createImpactEffect(particle.position, impactColor, 0.3, scene);
+                playCollisionSound();
+                scene.remove(particle);
+                particles.splice(i, 1);
+            }
+        });
+        
+        if (hasCollided) continue;
+        
+        // Update particle velocity and position
+        particle.velocity.add(totalForce.multiplyScalar(0.3));
+        particle.position.add(particle.velocity.multiplyScalar(0.3));
+    }
+
+    function createImpactEffect(position, color, size, scene) {
+        const impactGeometry = new THREE.SphereGeometry(size, 16, 16);
+        const impactMaterial = new THREE.MeshPhongMaterial({
+            color: color,
+            emissive: color,
+            emissiveIntensity: 2,
+            transparent: true,
+            opacity: 1
+        });
+        const impact = new THREE.Mesh(impactGeometry, impactMaterial);
+        impact.position.copy(position);
+        scene.add(impact);
+    
+        // Animate impact effect
+        const startTime = Date.now();
+        const duration = 2000;
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = elapsed / duration;
+    
+            if (progress < 1) {
+                impact.material.opacity = 1 - progress;
+                impact.scale.setScalar(1 + progress);
+                requestAnimationFrame(animate);
+            } else {
+                scene.remove(impact);
+            }
+        };
+        animate();
+    }
 
     // Camera animation logic
     if (isAnimating) {
