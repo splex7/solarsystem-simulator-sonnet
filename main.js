@@ -243,30 +243,39 @@ function onMouseClick(event) {
     const intersects = raycaster.intersectObjects([...planets, sun]);
 
     if (intersects.length > 0) {
-        selectedPlanet = intersects[0].object;
-        isFollowingPlanet = true;
-        isAnimating = true;
-
-        // Show info card
-        infoCard.style.display = 'block';
+        const clickedPlanet = intersects[0].object;
         
-        if (selectedPlanet === sun) {
-            planetName.textContent = "Sun";
-            planetDescription.textContent = "태양계의 중심에 있는 항성으로, 모든 행성에 빛과 열을 제공합니다.";
-            planetFunFact.textContent = "태양은 지구로부터 약 1억 5천만 킬로미터 떨어져 있으며, 표면 온도는 약 5,500°C입니다. 태양의 질량은 지구의 약 33만 배이며, 태양계 전체 질량의 99.86%를 차지합니다. 태양의 중심부 온도는 약 1,500만°C에 달하며, 매초 수소를 헬륨으로 융합하는 핵융합 반응이 일어나고 있습니다.";
+        if (selectedPlanet === clickedPlanet) {
+            // Clicking the same planet again - stop following
+            isFollowingPlanet = false;
+            isAnimating = true;
+            selectedPlanet = null;
+            infoCard.style.display = 'none';
         } else {
-            planetName.textContent = selectedPlanet.userData.name;
-            planetDescription.textContent = selectedPlanet.userData.description;
-            planetFunFact.textContent = selectedPlanet.userData.funFact;
+            // Clicking a different planet - start following
+            selectedPlanet = clickedPlanet;
+            isFollowingPlanet = true;
+            isAnimating = true;
+            infoCard.style.display = 'block';
+            
+            if (selectedPlanet === sun) {
+                planetName.textContent = "Sun";
+                planetDescription.textContent = "태양계의 중심에 있는 항성으로, 모든 행성에 빛과 열을 제공합니다.";
+                planetFunFact.textContent = "태양은 지구로부터 약 1억 5천만 킬로미터 떨어져 있으며, 표면 온도는 약 5,500°C입니다. 태양의 질량은 지구의 약 33만 배이며, 태양계 전체 질량의 99.86%를 차지합니다. 태양의 중심부 온도는 약 1,500만°C에 달하며, 매초 수소를 헬륨으로 융합하는 핵융합 반응이 일어나고 있습니다.";
+            } else {
+                planetName.textContent = selectedPlanet.userData.name;
+                planetDescription.textContent = selectedPlanet.userData.description;
+                planetFunFact.textContent = selectedPlanet.userData.funFact;
+            }
         }
     } else {
-        // Return to initial position when clicking empty space
+        // Clicking empty space - stop following if currently following
         if (isFollowingPlanet) {
             isFollowingPlanet = false;
             isAnimating = true;
             selectedPlanet = null;
+            infoCard.style.display = 'none';
         }
-        infoCard.style.display = 'none';
     }
 }
 
