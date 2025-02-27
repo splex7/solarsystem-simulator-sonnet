@@ -78,9 +78,49 @@
                 margin-top: 10px;
             }
         }
+        .toggle-switch.active::before {
+            transform: translateX(30px);
+        }
+
+        #audio-permission {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(23, 32, 42, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 1001;
+            display: none;
+        }
+
+        #audio-permission button {
+            background: #4169E1;
+            border: none;
+            padding: 10px 20px;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+
+        #audio-permission button:hover {
+            background: #1E90FF;
+        }
     </style>
 </head>
 <body>
+    <div id="audio-permission">
+        <h2>Sound Effects Permission</h2>
+        <p>This experience includes sound effects. Click below to enable audio.</p>
+        <button id="enable-audio">Enable Sound Effects</button>
+    </div>
     <div id="info-card" class="info-card">
         <h2 id="planet-name">Planet Name</h2>
         <p id="planet-description">Planet description goes here.</p>

@@ -455,27 +455,42 @@ const particleMaterial = new THREE.MeshPhongMaterial({
 });
 
 // Create Audio context and load sound effect
-const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+let audioContext;
 let collisionSound;
 
-fetch('boom.mp3')
-    .then(response => response.arrayBuffer())
-    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
-    .then(audioBuffer => {
-        collisionSound = audioBuffer;
-    })
-    .catch(error => console.error('Error loading sound:', error));
+// Audio permission handling
+const audioPermissionDialog = document.getElementById('audio-permission');
+const enableAudioButton = document.getElementById('enable-audio');
+
+// Show audio permission dialog
+audioPermissionDialog.style.display = 'block';
+
+// Initialize audio context on user interaction
+enableAudioButton.addEventListener('click', async () => {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Load collision sound
+    try {
+        const response = await fetch('boom.mp3');
+        const arrayBuffer = await response.arrayBuffer();
+        collisionSound = await audioContext.decodeAudioData(arrayBuffer);
+        
+        // Hide the permission dialog
+        audioPermissionDialog.style.display = 'none';
+    } catch (error) {
+        console.error('Error loading collision sound:', error);
+    }
+});
 
 function playCollisionSound() {
-    if (collisionSound && audioContext.state === 'running') {
+    if (collisionSound && audioContext && audioContext.state === 'running') {
         const source = audioContext.createBufferSource();
         source.buffer = collisionSound;
-         // Create a GainNode to control the volume
+        // Create a GainNode to control the volume
         const gainNode = audioContext.createGain();
-        gainNode.gain.value = 0.2; // S
+        gainNode.gain.value = 0.2; // Set volume to 20%
         source.connect(gainNode);
         gainNode.connect(audioContext.destination);
-      
         source.start(0);
     }
 }
