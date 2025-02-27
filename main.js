@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // Scene setup
 const scene = new THREE.Scene();
 // add fog
-scene.fog = new THREE.FogExp2(0x000814, 0.002);
+scene.fog = new THREE.FogExp2(0x000814, 0.005);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -156,6 +156,13 @@ scene.add(sunLight);
 const planets = [];
 const orbits = [];
 
+// Add grid plane
+const gridHelper = new THREE.GridHelper(1000, 200, 0x00ff00, 0x00ff00);
+gridHelper.material.opacity = 0.2;
+gridHelper.material.transparent = true;
+gridHelper.position.y = -2;
+scene.add(gridHelper);
+
 // Add stars
 const starsGeometry = new THREE.BufferGeometry();
 const starsMaterial = new THREE.PointsMaterial({
@@ -225,6 +232,7 @@ let targetPosition = null;
 let isAnimating = false;
 let selectedPlanet = null;
 let cameraOffset = new THREE.Vector3(0, 2, 5);
+let isFollowingPlanet = false;
 
 // Click event handler
 function onMouseClick(event) {
@@ -236,10 +244,13 @@ function onMouseClick(event) {
 
     if (intersects.length > 0) {
         selectedPlanet = intersects[0].object;
+        isFollowingPlanet = true;
         isAnimating = true;
 
         // Show info card
         infoCard.style.display = 'block';
+        infoCard.style.left = event.clientX + 'px';
+        infoCard.style.top = event.clientY + 'px';
         
         if (selectedPlanet === sun) {
             planetName.textContent = "Sun";
@@ -251,10 +262,12 @@ function onMouseClick(event) {
             planetFunFact.textContent = selectedPlanet.userData.funFact;
         }
     } else {
-        // Reset camera position
-        selectedPlanet = null;
-        targetPosition = new THREE.Vector3(20, 10, 20);
-        isAnimating = true;
+        // Return to initial position when clicking empty space
+        if (isFollowingPlanet) {
+            isFollowingPlanet = false;
+            isAnimating = true;
+            selectedPlanet = null;
+        }
         infoCard.style.display = 'none';
     }
 }
@@ -275,7 +288,6 @@ class CameraController {
         this.zoomSpeed = 0.1;
         this.rotationSpeed = 0.002;
 
-        // Mouse/Touch state
         this.pointerDown = false;
         this.pointerPosition = new THREE.Vector2();
         this.previousPointerPosition = new THREE.Vector2();
@@ -380,29 +392,33 @@ class CameraController {
     }
 
     handleRotation() {
-        const deltaX = (this.pointerPosition.x - this.previousPointerPosition.x) * this.rotationSpeed;
-        const deltaY = (this.pointerPosition.y - this.previousPointerPosition.y) * this.rotationSpeed;
+        if (!isFollowingPlanet) {
+            const deltaX = (this.pointerPosition.x - this.previousPointerPosition.x) * this.rotationSpeed;
+            const deltaY = (this.pointerPosition.y - this.previousPointerPosition.y) * this.rotationSpeed;
 
-        const position = this.camera.position.clone().sub(this.target);
-        const distance = position.length();
+            const position = this.camera.position.clone().sub(this.target);
+            const distance = position.length();
 
-        position.applyAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
+            position.applyAxisAngle(new THREE.Vector3(0, 1, 0), -deltaX);
 
-        const right = new THREE.Vector3().crossVectors(position, new THREE.Vector3(0, 1, 0)).normalize();
-        position.applyAxisAngle(right, -deltaY);
+            const right = new THREE.Vector3().crossVectors(position, new THREE.Vector3(0, 1, 0)).normalize();
+            position.applyAxisAngle(right, -deltaY);
 
-        position.normalize().multiplyScalar(distance);
-        this.camera.position.copy(this.target).add(position);
-        this.camera.lookAt(this.target);
+            position.normalize().multiplyScalar(distance);
+            this.camera.position.copy(this.target).add(position);
+            this.camera.lookAt(this.target);
+        }
     }
 
     handleZoom(delta) {
-        const direction = new THREE.Vector3().subVectors(this.camera.position, this.target).normalize();
-        const newPosition = this.camera.position.clone().addScaledVector(direction, delta);
-        
-        const distance = newPosition.distanceTo(this.target);
-        if (distance > 5 && distance < 100) {
-            this.camera.position.copy(newPosition);
+        if (!isFollowingPlanet) {
+            const direction = new THREE.Vector3().subVectors(this.camera.position, this.target).normalize();
+            const newPosition = this.camera.position.clone().addScaledVector(direction, delta);
+            
+            const distance = newPosition.distanceTo(this.target);
+            if (distance > 5 && distance < 100) {
+                this.camera.position.copy(newPosition);
+            }
         }
     }
 
@@ -422,36 +438,37 @@ window.addEventListener('resize', onWindowResize);
 function animate() {
     requestAnimationFrame(animate);
 
-    // Update planet positions
-    // Add sun rotation
-    sun.rotation.y += 0.001; // Sun's self-rotation speed
+    // Update planet positions and rotations
+    sun.rotation.y += 0.001;
 
     planets.forEach((planet, index) => {
         const data = planetsData[index];
-        planet.userData.angle += 0.005 / Math.sqrt(data.orbit); // Adjust speed based on orbit radius
+        planet.userData.angle += 0.005 / Math.sqrt(data.orbit);
         planet.position.x = Math.cos(planet.userData.angle) * data.orbit;
         planet.position.z = Math.sin(planet.userData.angle) * data.orbit;
-        planet.rotation.y += 0.002; // Planet's self-rotation
+        planet.rotation.y += 0.002;
 
-        // Rotate clouds slightly faster than Earth
         if (planet.userData.clouds) {
             planet.userData.clouds.rotation.y += 0.0022;
         }
     });
 
-    // Smooth camera animation
+    // Camera animation logic
     if (isAnimating) {
-        if (selectedPlanet) {
-            // Calculate desired camera position based on planet position
+        if (isFollowingPlanet && selectedPlanet) {
+            // Follow selected planet
             targetPosition = selectedPlanet.position.clone().add(cameraOffset);
             camera.position.lerp(targetPosition, 0.05);
             camera.lookAt(selectedPlanet.position);
-        } else if (targetPosition) {
-            camera.position.lerp(targetPosition, 0.05);
-            camera.lookAt(0, 0, 0);
+            isAnimating = true; // Keep animating to follow the planet
+        } else {
+            // Return to initial position
+            const initialPosition = new THREE.Vector3(20, 10, 20);
+            camera.position.lerp(initialPosition, 0.05);
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
             
-            // Only stop animating when returning to default view
-            if (camera.position.distanceTo(targetPosition) < 0.1) {
+            // Stop animating when close enough to initial position
+            if (camera.position.distanceTo(initialPosition) < 0.1) {
                 isAnimating = false;
             }
         }
